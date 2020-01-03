@@ -1,0 +1,198 @@
+#API列表
+ 
+#概述
+
+
+- [特征抽取](#feature-extractor-module)
+    + [FeatureExtractorBase](#featureextractorbase)
+    + [WordsegExtractor](#wordsegextractor)
+- [分类器](#classifier-module)
+    + [ClassifierBase](#classifierbase)
+    + [SvmBasicClassifier](#svmbasicclassifier)
+    + [RuleBasicClassifier](#rulebasicclassifier)
+    + [CommonClassifier](#commonclassifier)
+- [其他](#other)
+    + [Preprocessor](#preprocessor)
+
+
+#Feature Extractor Module
+##FeatureExtractorBase
+###描述
+特征抽取基类。
+
+构造参数：
+_module\_dir_ —— string类型, 必须要接受一个输出路径，输出模型到模块路径下，防止命名冲突，建议传入调用分类器的模块路径
+
+###方法
+* __load_dict__()
+
+    装载词典，有可能包括分词词典，关键词词典，词向量模型等
+
+
+* __train__(_train_file_path_)
+    
+    训练特征抽取模型，需要训练样本
+    ，可能是统计tf、idf或者互信息量等信息。其中train_file_path是训练样本路径
+
+
+* __gen_feature__(_text_, _item_info_=_None_)
+    
+    抽取特征
+
+    |    参数   |  类型  |   备注   |
+    |-----------|--------|----------|
+    | __text__      | string | 文本     |
+    | __item_info__ | dict   | item信息 |
+
+    return: 返回sparse matrix类型或者dense matrix类型
+
+
+* __gen_feature_batch__(_batch_item_lst_)
+    
+    批量抽取特征
+
+    |      参数      | 类型 |                    备注                    |
+    |----------------|------|--------------------------------------------|
+    | __batch_item_lst__ | list | 批量处理的item列表，item为(text,item_info) |
+
+    return: 返回sparse matrix类型或者dense matrix类型
+
+* __gen_comment__(_text_, _item_info_=_None_)
+    
+    生成抽取特征备注信息
+
+    |    参数   |  类型  |   备注   |
+    |-----------|--------|----------|
+    | __text__      | string | 文本     |
+    | __item_info__ | dict   | item信息 |
+
+    return: 返回string类型
+
+
+
+
+##WordsegExtractor
+###描述
+继承于[FeatureExtractorBase](#featureextractorbase)。
+抽取的特征是基于分词，特征权重通过计算tfidf获得。
+
+#Classifier Module
+
+所有分类器继承于ClassifierBase，其中，
+\*\*BasicClassifier表示一级分类器，其他表示二级分类器（业务用或者融合模型）。
+
+##ClassifierBase
+###描述
+分类器基类。已经实现了预测、评估等方法，继承子类需要重写train、 load_model、classify、get_classify_comment这些方法。
+
+构造函数参数包括：
+train_file_path —— string类型，训练集路径，为空时采用默认值，默认值见配置conf.TRAIN_FILE_PATH
+module_dir —— string类型, 模块输出路径，必须要接受一个输出路径，输出模型到模块路径下，防止文件名冲突，为空时默认采用分类器名称在data下建立新目录
+
+
+###方法
+* __set_file_path__(_train_file_path_=_None_, _module_dir_=_None_)
+    
+    设置训练集和模块路径，ClassifierBase基类已实现
+
+    |       参数      |  类型  |                            备注                           |
+    |-----------------|--------|-----------------------------------------------------------|
+    | __train_file_path__ | string | 训练集路径，csv格式，表头包含“label”，“text”，“item_info” |
+    | __module_dir__      | string | 模块路径                                                  |
+
+
+* __train__()
+    
+    使用训练集样本训练模型
+
+
+* __load_model__()
+    
+    装载训练好的模型
+
+
+* __classify__(_text_, _item_info_=_None_)
+        
+    计算分类结果
+
+    |    参数   |  类型  |   备注   |
+    |-----------|--------|----------|
+    | __text__      | string | 文本     |
+    | __item_info__ | dict   | item信息 |
+
+    return: 分类结果的类型为dict类型，形式为{cate_name1:score1,cate_name2:score2}
+
+
+* __gen_classify_comment__(_text_,_item_info_=_None_):
+        
+    生成分类备注信息，譬如可以输出 命中的规则，或者说抽取到了什么特征
+
+    |    参数   |  类型  |   备注   |
+    |-----------|--------|----------|
+    | __text__      | string | 文本     |
+    | __item_info__ | dict   | item信息 |
+
+
+    return: string类型,备注信息
+
+
+
+* __predict__(_test_file_path_, _predict_file_path_=_None_)
+
+    生成预测结果，ClassifierBase基类已实现
+
+    |          参数         |  类型  |                                                                 备注                                                                |
+    |-----------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------|
+    | __test_file_path__    | string | 测试集路径，csv格式，表头包含“label”，“text”，“item_info”                                                                           |
+    | __predict_file_path__ | string | 预测结果文件输出路径，csv格式，表头包含:<br/>“predict_label”，“text”，“item_info”,"comment"<br/>为空时路径为“模块路径/ predict.csv” |
+    
+    
+
+
+* __evaluation__(_test_file_path_, _predict_file_path_=_None_, _diff_file_path_=_None_)
+        
+    评估结果并打印，ClassifierBase基类已实现
+
+    |          参数         |  类型  |                                                                       备注                                                                      |
+    |-----------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+    | __test_file_path__    | string | 测试集路径，csv格式，表头包含“label”，“text”，“item_info”                                                                                       |
+    | __predict_file_path__ | string | 预测结果文件路径，csv格式，表头包含:<br/>“predict_label”，“text”，“item_info”<br/>为空时路径为“模块路径/ predict.csv”                           |
+    | __diff_file_path__    | string | diff结果文件输出路径，csv格式，表头包含:<br/>“label”，“predict_label”，“text”，<br/>“item_info”，"comment"<br/>为空时路径为“模块路径/ diff.csv” |
+
+    diff结果示例：
+    ![评估结果](./diff_result.png) 
+
+
+    评估结果示例：
+    ![评估结果](./classify_result.png) 
+   
+
+
+##SvmBasicClassifier
+###描述
+继承于[ClassifierBase](#classifierbase)。svm模型构建的分类器
+
+
+##RuleBasicClassifier
+###描述
+继承于[ClassifierBase](#classifierbase)。规则构建的分类器
+
+
+##CommonClassifier
+###描述
+继承于[ClassifierBase](#classifierbase)。
+内部实例化了SvmBasicClassifier和RuleBasicClassifier。
+将子分类器的预测分数进行了合并统一。
+
+
+
+
+#Other
+##Preprocessor
+###方法
+* text_decode(_text_)
+    
+    编码转换，将其他编码转换成utf-8
+
+
+

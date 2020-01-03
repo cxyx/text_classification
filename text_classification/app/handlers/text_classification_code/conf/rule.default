@@ -1,0 +1,8 @@
+# gep_len: 5
+# 表示多关键词规则中关键词生效的最大间隔
+#
+# rule_score: 0.3
+# 表示规则命中后的加分
+#
+# 支持正则，注意字符转义。example：
+# word1 word2	label1 label2
